@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+
+Parameters:
+  SNSTopicArn: 
+    Type: String
+    Description: Enter the SNS Topic ARN to which to subscribe.  
+
+Resources:  
+  EventsDynamoDbTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: "MessageId"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "MessageId"
+          KeyType: "HASH"
+      BillingMode: PAY_PER_REQUEST  
+
+
+  SnsSubscription:
+    Type: "AWS::SNS::Subscription"
+    Properties:
+      Protocol: "lambda"
+      TopicArn: !Ref SNSTopicArn
+      Endpoint: !GetAtt ImportIntoDynamoDbFunction.Arn
+
+  ImportIntoDynamoDbFunction:
+    Type: "AWS::Serverless::Function"
+    Properties:      
+      CodeUri: 'functions'
+      Handler: lambda_function.lambda_handler
+      Runtime: "python3.8"
+      Description: "Function to save SNS messages to DynamoDB"
+      MemorySize: 128
+      Timeout: 30
+      Role: !GetAtt DynamoDbFunctionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref EventsDynamoDbTable
+      Events:
+        SnsEvent:
+          Type: "SNS"
+          Properties:
+            Topic: !Ref SNSTopicArn
+
+  DynamoDbFunctionRole:
+    Type: "AWS::IAM::Role"
+    Properties:      
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "dynamodb-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:GetItem"
+                Resource: !GetAtt EventsDynamoDbTable.Arn
