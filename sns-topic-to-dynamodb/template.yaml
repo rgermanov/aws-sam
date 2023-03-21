@@ -55,7 +55,9 @@ Resources:
             Principal:
               Service: "lambda.amazonaws.com"
             Action: "sts:AssumeRole"
-      Policies:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:          
         - PolicyName: "dynamodb-access"
           PolicyDocument:
             Version: "2012-10-17"
